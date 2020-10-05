@@ -1,3 +1,13 @@
+# SFOS: If we're using the downloaded binaries then we don't define this
+%define sfos 1
+# if there is no rust available then define rust_use_bootstrap 1 in the prjconf
+# For hacking purposes
+%define rust_use_bootstrap 1
+%define bootstrap_arches i486
+
+%global bootstrap_rust 1.44.0
+%global bootstrap_cargo 1.44.0
+
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://forge.rust-lang.org/platform-support.html
 
@@ -5,8 +15,6 @@
 
 %ifarch %ix86
 %global rust_triple i686-unknown-linux-gnu
-%else
-%global rust_triple armv7-unknown-linux-gnueabihf
 %endif
 
 %global python python3
@@ -25,16 +33,23 @@ URL:            https://www.rust-lang.org
 %global rustc_package rustc-%{rust_version}-src
 Source0:        rustc-%{rust_version}-src.tar.gz
 Source100:      rust-%{rust_version}-i686-unknown-linux-gnu.tar.gz
-Source101:      rust-%{rust_version}-armv7-unknown-linux-gnueabihf.tar.gz
 Source200:      README.md
 
 Patch1: 0001-Use-a-non-existent-test-path-instead-of-clobbering-d.patch
 Patch2: 0002-Set-proper-llvm-targets.patch
 Patch3: 0003-Disable-statx-for-all-builds.-JB-50106.patch
+Patch4: 0004-Scratchbox2-needs-to-be-able-to-tell-rustc-the-defau.patch
 
+#SFOS : our rust_use_bootstrap puts them into /usr
+%if 0%{?rust_use_bootstrap}
 %global bootstrap_root rust-%{rust_version}-%{rust_triple}
 %global local_rust_root %{_builddir}/%{bootstrap_root}/usr
 %global bootstrap_source rust-%{rust_version}-%{rust_triple}.tar.gz
+%else
+%global local_rust_root /usr
+BuildRequires:  cargo >= %{bootstrap_cargo}
+BuildRequires:  %{name} >= %{bootstrap_rust}
+%endif
 
 BuildRequires:  make
 BuildRequires:  cmake
@@ -60,7 +75,6 @@ BuildRequires:  gdb
 ExcludeArch:    aarch64
 
 # Virtual provides for folks who attempt "dnf install rustc"
-Provides:       rustc = %{version}-%{release}
 Provides:       rustc = %{version}-%{release}
 
 # Always require our exact standard library
@@ -147,21 +161,21 @@ and ensure that you'll always get a repeatable build.
 
 
 %prep
-%ifarch %ix86
+#SFOS : our rust_use_bootstrap puts them into /usr
+%if 0%{?rust_use_bootstrap}
 %setup -q -n %{bootstrap_root} -T -b 100
-%else
-%setup -q -n %{bootstrap_root} -T -b 101
-%endif
 ./install.sh --components=cargo,rustc,rust-std-%{rust_triple} \
   --prefix=%{local_rust_root} --disable-ldconfig
 test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
+%endif
 
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
+%patch4 -p1
 
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 
@@ -296,6 +310,7 @@ rm -f %{buildroot}%{_bindir}/rustdoc
 rm -fr %{buildroot}%{_mandir}/man1
 
 %check
+%if 0
 %ifarch %ix86
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
@@ -303,6 +318,7 @@ rm -fr %{buildroot}%{_mandir}/man1
 # The results are not stable on koji, so mask errors and just log it.
 %{python} ./x.py test --no-fail-fast || :
 %{python} ./x.py test --no-fail-fast cargo || :
+%endif
 %endif
 
 %post -p /sbin/ldconfig
