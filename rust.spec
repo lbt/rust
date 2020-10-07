@@ -325,6 +325,10 @@ find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
    fi
  done)
 
+# The non-x86 .so files would be used by rustc if it had been built
+# for those targets
+rm %{buildroot}%{rustlibdir}/%{rust_arm_triple}/lib/*.so
+
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
 
@@ -378,8 +382,7 @@ rm -fr %{buildroot}%{_mandir}/man1
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
-%exclude %{_bindir}/*miri
-
+#%%exclude %%{_bindir}/*miri
 
 %files std-static
 %dir %{rustlibdir}
