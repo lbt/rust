@@ -261,7 +261,7 @@ FFLAGS=
 %define enable_debuginfo --debuginfo-level=0 --debuginfo-level-std=2 --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
 
 # arm cc needs to find ld so ensure PATH points there
-#PATH=/opt/cross/bin/:$PATH
+PATH=/opt/cross/bin/:$PATH
 
 # The configure macro sets CFLAGS to x86 which causes the ARM target to fail
 ./configure --prefix=/usr --exec-prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc --datadir=/usr/share --includedir=/usr/include --libdir=/usr/lib --libexecdir=/usr/libexec --localstatedir=/var --sharedstatedir=/var/lib --mandir=/usr/share/man --infodir=/usr/share/info \
