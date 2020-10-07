@@ -1,3 +1,9 @@
+# This spec is split into 2.
+
+# There is some common header and then the real rust
+# compiler/libraries are built in x86 root wrapped in an ifarch. The
+# arm/aarch64 stubs are built at the end
+
 # SFOS: If we're using the downloaded binaries then we don't define this
 %define sfos 1
 # if there is no rust available then define rust_use_bootstrap 1 in the prjconf
@@ -15,10 +21,7 @@
 
 %define rust_arm_triple armv7-unknown-linux-gnueabihf
 %define rust_aarch64_triple aarch64-unknown-linux-gnu
-
-%ifarch %ix86
 %global rust_triple i686-unknown-linux-gnu
-%endif
 
 %global python python3
 
@@ -42,6 +45,9 @@ Patch1: 0001-Use-a-non-existent-test-path-instead-of-clobbering-d.patch
 Patch2: 0002-Set-proper-llvm-targets.patch
 Patch3: 0003-Disable-statx-for-all-builds.-JB-50106.patch
 Patch4: 0004-Scratchbox2-needs-to-be-able-to-tell-rustc-the-defau.patch
+
+# This is the real rustc spec - the stub one appears near the end.
+%ifarch %ix86
 
 #SFOS : our rust_use_bootstrap puts them into /usr
 %if 0%{?rust_use_bootstrap}
@@ -413,4 +419,43 @@ rm -fr %{buildroot}%{_mandir}/man1
 %files lldb
 %{_bindir}/rust-lldb
 %{rustlibdir}/etc/lldb_*.py*
+%endif
+
+# This is the non x86 spec to produce dummy rust/cargo binaries
+%else
+
+# The rust description
+%description
+A stub of rust for use in scratchbox2
+
+%package -n cargo
+Summary:        Rust's package manager and build tool
+Requires:       rust
+
+%description -n cargo
+A stub of cargo for use in scratchbox2
+
+%prep
+%build
+%install
+mkdir -p %{buildroot}%{_bindir}
+cat <<EOF >%{buildroot}%{_bindir}/rustc
+#!/bin/bash
+echo "This is the stub rustc. If you see this, scratchbox2 is not working. Called as"
+echo $0 "$@"
+EOF
+cat <<EOF >%{buildroot}%{_bindir}/cargo
+#!/bin/bash
+echo "This is the stub cargo. If you see this, scratchbox2 is not working. Called as"
+echo $0 "$@"
+EOF
+chmod 755 %{buildroot}%{_bindir}/*
+
+%files
+%defattr(-,root,root,0755)
+%{_bindir}/rustc
+
+%files -n cargo
+%defattr(-,root,root,0755)
+%{_bindir}/cargo
 %endif
