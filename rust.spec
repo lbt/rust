@@ -13,6 +13,9 @@
 
 %global rust_version 1.44.0
 
+%define rust_arm_triple armv7-unknown-linux-gnueabihf
+%define rust_aarch64_triple aarch64-unknown-linux-gnu
+
 %ifarch %ix86
 %global rust_triple i686-unknown-linux-gnu
 %endif
@@ -55,6 +58,15 @@ BuildRequires:  make
 BuildRequires:  cmake
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
+# The cross- packages install into /opt/cross
+BuildRequires:  cross-armv7hl-gcc
+BuildRequires:  cross-armv7hl-binutils
+BuildRequires:  cross-armv7hl-as
+BuildRequires:  cross-armv7hl-glibc
+BuildRequires:  cross-armv7hl-glibc-devel
+BuildRequires:  cross-armv7hl-glibc-headers
+BuildRequires:  cross-armv7hl-kernel-headers
+
 BuildRequires:  ncurses-devel
 BuildRequires:  pkgconfig(libcurl)
 # build.rs and boostrap/config.rs => cargo_native_static?
@@ -71,7 +83,8 @@ BuildRequires:  procps
 # debuginfo-gdb tests need gdb
 BuildRequires:  gdb
 
-# Disable aach64 build
+# Disable non-x86 build
+ExcludeArch:    armv7hl
 ExcludeArch:    aarch64
 
 # Virtual provides for folks who attempt "dnf install rustc"
@@ -112,8 +125,15 @@ This package includes the Rust compiler and documentation generator.
 Summary:        Standard library for Rust
 
 %description std-static
-This package includes the standard libraries for building applications
-written in Rust.
+This package includes the standard libraries for building
+%{rust_triple} applications written in Rust.
+
+%package std-static-%{rust_arm_triple}
+Summary:        Standard library for Rust
+
+%description std-static-%{rust_arm_triple}
+This package includes the standard libraries for building
+%{rust_arm_triple} applications written in Rust.
 
 
 %package debugger-common
@@ -219,6 +239,9 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 %build
 
 export RUSTFLAGS="%{rustflags}"
+CFLAGS=
+CXXFLAGS=
+FFLAGS=
 
 # We're going to override --libdir when configuring to get rustlib into a
 # common path, but we'll fix the shared libraries during install.
@@ -231,9 +254,15 @@ export RUSTFLAGS="%{rustflags}"
 # %define enable_debuginfo --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
 %define enable_debuginfo --debuginfo-level=0 --debuginfo-level-std=2 --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
 
-%configure --disable-option-checking \
+# arm cc needs to find ld so ensure PATH points there
+#PATH=/opt/cross/bin/:$PATH
+
+# The configure macro sets CFLAGS to x86 which causes the ARM target to fail
+./configure --prefix=/usr --exec-prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc --datadir=/usr/share --includedir=/usr/include --libdir=/usr/lib --libexecdir=/usr/libexec --localstatedir=/var --sharedstatedir=/var/lib --mandir=/usr/share/man --infodir=/usr/share/info \
+ --disable-option-checking \
   --libdir=%{common_libdir} \
-  --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
+  --build=%{rust_triple} --host=%{rust_triple}\
+  --target=%{rust_triple},%{rust_arm_triple}\
   --python=%{python} \
   --local-rust-root=%{local_rust_root} \
   --enable-local-rebuild \
@@ -248,13 +277,21 @@ export RUSTFLAGS="%{rustflags}"
   --enable-vendor \
   --tools=cargo \
   --llvm-root=/usr/ \
-  --enable-parallel-compiler
+  --enable-parallel-compiler \
+  --set target.%{rust_triple}.cc=/usr/bin/cc \
+  --set target.%{rust_triple}.ar=/usr/bin/ar \
+  --set target.%{rust_arm_triple}.cc=/opt/cross/bin/armv7hl-meego-linux-gnueabi-cc \
+  --set target.%{rust_arm_triple}.ar=/opt/cross/bin/armv7hl-meego-linux-gnueabi-ar \
+  --set build.verbose=2
 
 %{python} ./x.py build
 
 
 %install
 export RUSTFLAGS="%{rustflags}"
+CFLAGS=
+CXXFLAGS=
+FFLAGS=
 
 DESTDIR=%{buildroot} %{python} ./x.py install
 
@@ -343,6 +380,12 @@ rm -fr %{buildroot}%{_mandir}/man1
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.rlib
+
+%files std-static-%{rust_arm_triple}
+%dir %{rustlibdir}
+%dir %{rustlibdir}/%{rust_arm_triple}
+%dir %{rustlibdir}/%{rust_arm_triple}/lib
+%{rustlibdir}/%{rust_arm_triple}/lib/*.rlib
 
 %files -n cargo
 %license src/tools/cargo/LICENSE-APACHE src/tools/cargo/LICENSE-MIT src/tools/cargo/LICENSE-THIRD-PARTY
