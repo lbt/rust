@@ -45,7 +45,7 @@ Patch1: 0001-Use-a-non-existent-test-path-instead-of-clobbering-d.patch
 Patch2: 0002-Set-proper-llvm-targets.patch
 Patch3: 0003-Disable-statx-for-all-builds.-JB-50106.patch
 Patch4: 0004-Scratchbox2-needs-to-be-able-to-tell-rustc-the-defau.patch
-
+Patch5: 0005-Cargo-Force-the-target-when-building-for-CompileKind-Host.patch
 # This is the real rustc spec - the stub one appears near the end.
 %ifarch %ix86
 
@@ -262,6 +262,15 @@ FFLAGS=
 
 # arm cc needs to find ld so ensure PATH points there
 PATH=/opt/cross/bin/:$PATH
+
+###
+# xfade spotted this snippet in suse rust.spec to validate the local rebuild
+# Sometimes we may be rebuilding with the same compiler,
+# setting local-rebuild will skip stage0 build, reducing build time
+# if [ $(%{rust_root}/bin/rustc --version | sed -En 's/rustc ([0-9].[0-9][0-9].[0-9]).*/\1/p') = '%{version}' ]; then
+# sed -i -e "s|#local-rebuild = false|local-rebuild = true|" config.toml;
+# fi
+###
 
 # The configure macro sets CFLAGS to x86 which causes the ARM target to fail
 ./configure --prefix=/usr --exec-prefix=/usr --bindir=/usr/bin --sbindir=/usr/sbin --sysconfdir=/etc --datadir=/usr/share --includedir=/usr/include --libdir=/usr/lib --libexecdir=/usr/libexec --localstatedir=/var --sharedstatedir=/var/lib --mandir=/usr/share/man --infodir=/usr/share/info \
